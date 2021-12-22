@@ -1,0 +1,136 @@
+#Все это делается в R
+library("rugarch")
+
+library("MCS")
+library("xts")
+
+#install.packages("tidyr")
+#library("tidyr")
+
+library("lubridate")
+library("shape")
+library("quantmod")
+library("forecast")
+
+#здесь нужно загрузить ваши данные, которые хотите прогнозировать
+
+
+#задаем спецификации моделей
+p<-1
+q<-0
+#для всего интервала они равны 1 и 0, для каждого отдельного равны 0 и 0, надо будет прогнать оба варианта
+
+#оптимальные параметры кладутся в GARCH
+models <- c("sGARCH" ,"eGARCH", "gjrGARCH", "apARCH", "csGARCH")
+distributions <- c("norm","snorm","std","sstd", "ged", "sged", "jsu", "ghyp", "nig")
+
+fmodels=c("fGARCH")
+fsubmodel=c("AVGARCH", "TGARCH", "NGARCH", "NAGARCH", "ALLGARCH")
+
+arma_p1<- p
+arma_q1<- q
+
+garch_p1<- c(0,1,2)
+garch_q1<- c(0, 1,2)
+i<-0
+spec.comp <- list()
+#пошел перебор параметров, здесь от вариации include.mean=FALSE/TRUE зависит результат
+#https://www.mathworks.com/help/econ/what-is-a-conditional-mean-model.html - здесь информация про TRUE/FALSE
+for (arma_p in arma_p1){
+  for (arma_q in arma_q1){
+    for (garch_p in garch_p1){
+      for (garch_q in garch_q1){
+        for( m in models ) {
+          for( d in distributions ) {
+            i<-i+1
+            print(i)
+            name<-paste("ARFIMA","(", arma_p,",",arma_q,")", "-", m,"(",garch_p,",",garch_q,")","-",d)
+            spec.comp[[name]] <- 
+              ugarchspec(
+                mean.model = list(armaOrder = c(arma_p, arma_q),include.mean=FALSE),
+                variance.model = list(model = m, garchOrder = c(garch_p, garch_q)),
+                distribution=d)}}}}}}
+
+for (arma_p in arma_p1){
+  for (arma_q in arma_q1){
+    for (garch_p in garch_p1){
+      for (garch_q in garch_q1){
+        for( m in fmodels ) {
+          for (sub in fsubmodel){
+            for( d in distributions ) {
+              i<-i+1
+              print(i)
+              name<-paste("ARFIMA","(", arma_p,",",arma_q,")", "-", m,"(",garch_p,",",garch_q,")","-",sub,"-",d)
+              spec.comp[[name]] <- 
+                ugarchspec(
+                  mean.model = list(armaOrder = c(arma_p, arma_q),include.mean=FALSE),
+                  variance.model = list(model = m, garchOrder = c(garch_p, garch_q), submodel=sub),
+                  distribution=d)}}}}}}}
+specifications <- names( spec.comp )
+
+#теперь обучение моделей
+#Включаем многопоточность, в конце обязательно закрыть кластер. Лучше брать не все логические ядра, а их 50-75%
+cluster <- makeCluster(4)#задал 4 ядер
+
+#фича для счета времени выполнения всего цикла
+start.time <- Sys.time()
+
+roll.comp_btc <- list()
+num_btc<-0
+#здесь нужно задать момент с которого будем в дальнейшем прогнозировать в скользящем окне
+#n_start<-392#если год и 1 квартал
+n_start_st<-313#если 1 год
+n_start=n_start_st+79+5
+
+#[79:length(rr_btc)]
+#здесь закидываем ряд, который нужно прогнозировать, это должны быть доходности
+ddata_btc<-rr_btc[1:(length(rr_snp)-1)]#с 2017 годом
+
+konets<-length(ddata_btc)
+
+ch_btc<-0
+prognoz_tmp_btc<-list()
+plohie_btc<-list()
+
+time.taken.model_btc<-list()#список, чтобы в него писать время, затраченное на модели
+#задаем матрицу, в которую пишем прогноз в дальнейшем цикле
+prog_btc<-matrix(NA, ncol = length(spec.comp), nrow = (konets-n_start-1))
+colnames(prog_btc) <- specifications
+
+#length(spec.comp)
+for( s in specifications[1:length(spec.comp)] ){
+  start.time.model<-Sys.time()
+  #здесь скользящее окно 
+  roll.comp_btc[[s]] <- ugarchroll(spec = spec.comp[[s]], data = ddata_btc,
+                               solver = "nloptr",
+                               n.ahead=1, n.start=(n_start+1), 
+                               refit.window = c("moving"), 
+                               try=TRUE, refit.every = 1
+                               ,cluster = cluster)
+  num_btc<-num_btc+1
+  print(num_btc)
+  # #проверка на наличие NA и сразу записывание в матрицу, куда складываю прогнозы ВОЛАТИЛЬНОСТЕЙ
+  # #случай, когда значения в одном всем списком
+  if (length(roll.comp_btc[[s]]@forecast)==2){
+    prog_btc[,s]=roll.comp_btc[[s]]@forecast[["density"]][["Sigma"]]
+  }
+  if (length(roll.comp_btc[[s]]@forecast)==(konets-n_start-1)){
+    for (i in 1:(konets-n_start-1)){
+      if (length(roll.comp_btc[[s]]@forecast[[i]][["y"]])>1){#тут случай с  НЕ наном, его кладем и потом все намана
+        prog_btc[i,s]<-roll.comp_btc[[s]]@forecast[[i]][["y"]][["Sigma"]]
+      }
+    }
+  }
+  # #сразу пишу его в таблицу, чтобы все не упало в случае чего
+  write.csv2(prog_btc, "prog_btc.csv")
+  
+  end.time.model <- Sys.time()
+  time.taken.model_btc[[s]] <- end.time.model - start.time.model
+  print(time.taken.model_btc[[s]])
+}
+
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+stopCluster(cluster)#ОБЯЗАТЕЛЬНО ЗАКРЫВАТЬ КЛАСТЕР
+
