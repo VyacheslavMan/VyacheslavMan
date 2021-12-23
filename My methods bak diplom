@@ -1,0 +1,261 @@
+n=length(y)
+y_isp=y(1:(n-1))
+y_posl=y(n)
+function [z]=ne_compl_braun(y)
+t=length(y)
+err_ist(1)=0.00001
+y_prog(1)=err_ist(1)+y(1)
+for i=1:t
+    y_ist(i)=y(i)
+    if i<t
+        yy(i)=y(i+1)
+    else
+        yy(i)=y(i)
+    end
+    chislitel=sum((y_ist-y_prog)^2)
+    znamenatel=sum(((y_ist-y_prog).*(yy-y_prog)))
+    alfa(i)=chislitel/znamenatel
+    y_prog(i+1)=y_prog(i)+alfa(i)*(y_ist(i)-y_prog(i))
+    e(i+1)=abs(y_ist(i)-y_prog(i+1)) 
+end
+z=[y_prog]
+endfunction
+
+function [z]=compl_braun(y)
+t=length(y)
+err(1)=0
+y_prog(1)=err(1)+y(1)
+err_prog(1)=0.001+err(1)
+for j=1:t
+if j<t
+    yyy(j)=y(j+1)
+    eee(j)=err(j)
+else
+    yyy(j)=y(j)
+    eee(j)=err(j)
+end
+A(j)=y(j)-y_prog(j)
+B(j)=err(j)-err_prog(j)
+C(j)=y_prog(j)-err_prog(j)
+D(j)=err_prog(j)+y_prog(j)
+R(j)=sum(A.*A)+sum(B.*B)
+R1(j)=-sum(A.*yyy)+sum(A.*C)-sum(B.*eee)+sum(B.*D)
+R2(j)=sum(B.*yyy)-sum(B.*C)-sum(A.*eee)+sum(A.*D)
+alfa0(j)=-R1(j)/R(j)
+alfa1(j)=-R2(j)/R(j)
+y_prog(j+1)=alfa0(j)*A(j)-alfa1(j)*B(j)+C(j)
+err_prog(j+1)=alfa0(j)*B(j)+alfa1(j)*A(j)+D(j)
+    if j+1<=t
+        err(j+1)=y(j+1)-y_prog(j+1)
+    else
+        err(j+1)=0
+    end
+end
+z=y_prog
+endfunction
+
+function [z]=my_method_ne_compl(y)
+t=length(y)
+yyy(1)=y(2)
+y_ist(1)=y(1)
+y_prog(1)=y(1)
+y_prog(2)=y(2)
+A(1)=0//izmeneniya
+B(1)=y_ist(1)-y_prog(1)//err
+C(1)=0//err izmeneniya
+err(1)=0
+for i=2:t
+    //    
+        if i<t
+            yyy(i)=y(i+1)
+        else 
+            yyy(i)=y(t)
+        end
+        y_ist(i)=y(i)
+    //    
+        A(i)=y_ist(i)-y_ist(i-1)//izmeneniya
+        B(i)=y_ist(i)-y_prog(i)//err
+        C(i)=y_ist(i)-y_ist(i-1)-y_prog(i)+y_prog(i-1)//err izmeneniya
+    //
+        a0(i)=sum(y_ist.*yyy)
+        a1(i)=sum(y_ist.*y_ist)
+        a2(i)=sum(y_ist.*A)
+        a3(i)=sum(y_ist.*B)
+        a4(i)=sum(y_ist.*C)
+        b0(i)=sum(A.*yyy)
+        b1(i)=sum(A.*y_ist)
+        b2(i)=sum(A.*A)
+        b3(i)=sum(A.*B)
+        b4(i)=sum(A.*C)
+        c0(i)=sum(B.*yyy)
+        c1(i)=sum(B.*y_ist)
+        c2(i)=sum(B.*A)
+        c3(i)=sum(B.*B)
+        c4(i)=sum(B.*C)
+        d0(i)=sum(C.*yyy)
+        d1(i)=sum(C.*y_ist)
+        d2(i)=sum(C.*A)
+        d3(i)=sum(C.*B)
+        d4(i)=sum(C.*C)
+    R(1,:)=[a1(i),a2(i),a3(i),a4(i)]
+    R(2,:)=[b1(i),b2(i),b3(i),b4(i)]
+    R(3,:)=[c1(i),c2(i),c3(i),c4(i)]
+    R(4,:)=[d1(i),d2(i),d3(i),d4(i)]
+    RB(:,1)=-[a0(i),b0(i),c0(i),d0(i)]
+    RESH=linsolve(R,RB)
+    y_prog(i+1)=RESH(1)*y_ist(i)+RESH(2)*A(i)+RESH(3)*B(i)+RESH(4)*C(i)
+end
+z=y_prog
+endfunction
+
+function [z]=my_method_compl(y)
+t=length(y)
+yyy(1)=y(2)
+y_ist(1)=y(1)
+y_ist(2)=y(2)
+y_prog(1)=y(1)
+y_prog(2)=y(2)
+err_ist(1)=y_ist(1)-y_prog(1)
+err_ist(2)=y_ist(2)-y_prog(2)
+err_prog(1)=err_ist(1)
+err_prog(2)=err_ist(2)
+for i=2:t
+
+    if i<t
+            y_ist(i)=y(i)
+            err_ist(i)=y_ist(i)-y_prog(i)
+            yyy(i)=y(i+1)
+            ee(i)=y(i+1)-y_prog(i)
+    else
+            y_ist(i)=y(i)
+            err_ist(i)=y_ist(i)-y_prog(i)
+            yyy(i)=y(i)
+            ee(i)=y_ist(i)-y_prog(i)
+    end
+            A(i)=y_ist(i)-y_ist(i-1)
+            B(i)=-err_ist(i)+err_ist(i-1)
+            C(i)=y_ist(i)-y_prog(i)
+            D(i)=-err_ist(i)+err_prog(i)
+            F(i)=y_ist(i)-y_ist(i-1)-y_prog(i)+y_prog(i-1)
+            E(i)=-err_ist(i)+err_ist(i-1)+err_prog(i)-err_prog(i-1)
+
+        MATR(1,1)=sum(y_ist.*y_ist+err_ist.*err_ist)
+        MATR(1,2)=sum(-y_ist.*err_ist+y_ist.*err_ist)        
+        MATR(1,3)=sum(y_ist.*A-err_ist.*B)        
+        MATR(1,4)=sum(y_ist.*B+err_ist.*A)        
+        MATR(1,5)=sum(y_ist.*C-err_ist.*D)
+        MATR(1,6)=sum(y_ist.*D+err_ist.*C)
+        MATR(1,7)=sum(y_ist.*F-err_ist.*E)
+        MATR(1,8)=sum(y_ist.*E+err_ist.*F)
+
+        MATR(2,1)=sum(-y_ist.*err_ist+y_ist.*err_ist)
+        MATR(2,2)=sum(err_ist.*err_ist+y_ist.*y_ist)        
+        MATR(2,3)=sum(-err_ist.*A-y_ist.*B)        
+        MATR(2,4)=sum(-err_ist.*B+y_ist.*A)        
+        MATR(2,5)=sum(-err_ist.*C-y_ist.*D)
+        MATR(2,6)=sum(-err_ist.*D+y_ist.*C)
+        MATR(2,7)=sum(-err_ist.*F-y_ist.*E)
+        MATR(2,8)=sum(-err_ist.*E+y_ist.*F)
+        MATR(3,1)=sum(A.*y_ist-B.*err_ist)
+        MATR(3,2)=sum(-A.*err_ist-B.*y_ist)        
+        MATR(3,3)=sum(A.*A+B.*B)        
+        MATR(3,4)=sum(A.*B-B.*A)        
+        MATR(3,5)=sum(A.*C+B.*D)
+        MATR(3,6)=sum(A.*D-B.*C)
+        MATR(3,7)=sum(A.*F+B.*E)
+        MATR(3,8)=sum(A.*E-B.*F)
+        MATR(4,1)=sum(B.*y_ist+A.*err_ist)
+        MATR(4,2)=sum(-B.*err_ist+A.*y_ist)        
+        MATR(4,3)=sum(B.*A-A.*B)        
+        MATR(4,4)=sum(B.*B+A.*A)        
+        MATR(4,5)=sum(B.*C-A.*D)
+        MATR(4,6)=sum(B.*D+A.*C)
+        MATR(4,7)=sum(B.*F-A.*E)
+        MATR(4,8)=sum(B.*E+A.*F)
+        MATR(5,1)=sum(C.*y_ist-D.*err_ist)
+        MATR(5,2)=sum(-C.*err_ist-D.*y_ist)        
+        MATR(5,3)=sum(C.*A+D.*B)        
+        MATR(5,4)=sum(C.*B-D.*A)        
+        MATR(5,5)=sum(C.*C+D.*D)
+        MATR(5,6)=sum(C.*D-D.*C)
+        MATR(5,7)=sum(C.*F+D.*E)
+        MATR(5,8)=sum(C.*E-D.*F)
+        MATR(6,1)=sum(D.*y_ist+C.*err_ist)
+        MATR(6,2)=sum(-D.*err_ist+C.*y_ist)       
+        MATR(6,3)=sum(D.*A-C.*B)        
+        MATR(6,4)=sum(D.*B+C.*A)        
+        MATR(6,5)=sum(D.*C-C.*D)
+        MATR(6,6)=sum(D.*D+C.*C)
+        MATR(6,7)=sum(D.*F-C.*E)
+        MATR(6,8)=sum(D.*E+C.*F)
+        MATR(7,1)=sum(F.*y_ist-E.*err_ist)
+        MATR(7,2)=sum(-F.*err_ist-E.*y_ist)        
+        MATR(7,3)=sum(F.*A+E.*B)        
+        MATR(7,4)=sum(F.*B-E.*A)        
+        MATR(7,5)=sum(F.*C+E.*D)
+        MATR(7,6)=sum(F.*D-E.*C)
+        MATR(7,7)=sum(F.*F+E.*E)
+        MATR(7,8)=sum(F.*E-E.*F)
+        MATR(8,1)=sum(E.*y_ist+F.*err_ist)
+        MATR(8,2)=sum(-E.*err_ist+F.*y_ist)        
+        MATR(8,3)=sum(E.*A-F.*B)        
+        MATR(8,4)=sum(E.*B+F.*A)        
+        MATR(8,5)=sum(E.*C-F.*D)
+        MATR(8,6)=sum(E.*D+F.*C)
+        MATR(8,7)=sum(E.*F-F.*E)
+        MATR(8,8)=sum(E.*E+F.*F)
+
+        MATRB(1)=sum(-y_ist.*yyy-err_ist.*ee)
+        MATRB(2)=sum(err_ist.*yyy-y_ist.*ee)
+        MATRB(3)=sum(-A.*yyy+B.*ee)
+        MATRB(4)=sum(-B.*yyy-A.*ee)
+        MATRB(5)=sum(-C.*yyy+D.*ee)
+        MATRB(6)=sum(-D.*yyy-C.*ee)
+        MATRB(7)=sum(-F.*yyy+E.*ee)
+        MATRB(8)=sum(-E.*yyy-F.*ee)
+
+        vse_alfy=linsolve(MATR,MATRB)
+        alfa_1_0(i)=vse_alfy(1)
+        alfa_1_1(i)=vse_alfy(2)
+        alfa_2_0(i)=vse_alfy(3)
+        alfa_2_1(i)=vse_alfy(4)
+        alfa_3_0(i)=vse_alfy(5)
+        alfa_3_1(i)=vse_alfy(6)
+        alfa_4_0(i)=vse_alfy(7)
+        alfa_4_1(i)=vse_alfy(8)
+
+        y_prog(i+1)=(alfa_1_0(i)*y_ist(i)-alfa_1_1(i)*err_ist(i)+alfa_2_0(i)*A(i)+alfa_2_1(i)*B(i)+alfa_3_0(i)*C(i)+alfa_3_1(i)*D(i)+alfa_4_0(i)*F(i)+alfa_4_1(i)*E(i))
+        err_prog(i+1)=(alfa_1_0(i)*err_ist(i)+alfa_1_1(i)*y_ist(i)-alfa_2_0(i)*B(i)+alfa_2_1(i)*A(i)-alfa_3_0(i)*D(i)+alfa_3_1(i)*C(i)-alfa_4_0(i)*E(i)+alfa_4_1(i)*F(i))
+end
+z=(y_prog)
+endfunction
+function [y]=kriterii(y,y_prog,y_posl)
+n=length(y)
+yy=y_prog
+y_prog=y_prog(1:n)
+y_sred=(1/n)*sum(y)
+y_prog_sred=(1/n)*sum(y_prog)
+SS_res=0
+SS_tot=0
+SS_reg=0
+for i=1:n
+    SS_res=SS_res+(y(i)-y_prog(i))^2
+    SS_tot=SS_tot+(y(i)-y_sred)^2
+    SS_reg=SS_reg+(y_prog(i)-y_prog_sred)^2
+    A(i)=abs((y(i)-y_prog(i))/y(i))
+    ERR_srednee(i)=abs((y(i)-y_prog(i)))
+end
+Disp_ist=sqrt(SS_tot/n)
+Disp_prog=sqrt(SS_reg/n)
+R_kvadrat=1-(SS_res/SS_tot)
+A=(1/n)*100*sum(A)
+ERR_sred=(1/n)*sum(ERR_srednee)
+Disp_err=0
+for i=1:n
+        Disp_err=Disp_err+(ERR_srednee(i)-ERR_sred)^2
+end
+Disp_err=sqrt((1/n)*(Disp_err))
+Err_posl=y_posl-yy(n+1)
+y=[R_kvadrat,A,ERR_sred,Disp_err,Err_posl]
+endfunction
+
